@@ -19,3 +19,12 @@ export interface TimestampData {
 export interface AssetsData {
   [asset: string]: Omit<CoinmetricsDataDto, 'asset'>[];
 }
+
+export class CoinmetricsDataDocument {
+  static collectionName = 'CoinmetricsData';
+
+  timestamp: number;
+  assets: {
+    [asset: string]: Omit<CoinmetricsDataDto, 'asset' | 'time'>;
+  };
+}

@@ -1,3 +1,5 @@
+import { IsNotEmpty } from 'class-validator';
+
 export class StabilityDocument {
   static collectionName = 'Stability';
 
@@ -11,4 +13,17 @@ export class PeriodsData {
     standardDeviation?: any;
     cost?: number;
   };
+}
+
+export class CalculatorParams {
+  @IsNotEmpty()
+  asset: string;
+
+  @IsNotEmpty()
+  condition: 'above' | 'below' | 'all';
+
+  @IsNotEmpty()
+  percentage: string;
+
+  period?: '1 year' | '2 years';
 }

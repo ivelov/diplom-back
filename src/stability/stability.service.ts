@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { AssetsData } from 'src/app.dto';
+import { AssetsData, CoinmetricsDataDocument } from 'src/app.dto';
 import { density1d } from 'src/kde';
 import { PeriodsData, StabilityDocument } from './stability.dto';
 import { CollectionReference } from '@google-cloud/firestore';
@@ -11,6 +11,8 @@ export class StabilityService {
   constructor(
     @Inject(StabilityDocument.collectionName)
     private stabilityCollection: CollectionReference<StabilityDocument>,
+    @Inject(CoinmetricsDataDocument.collectionName)
+    private coinmetricsDataCollection: CollectionReference<CoinmetricsDataDocument>,
   ) {}
 
   async list() {
@@ -22,7 +24,7 @@ export class StabilityService {
   }
 
   async generate(data: AssetsData) {
-    const periods = ['years1', 'years2', 'years3', 'all'];
+    const periods = ['years1', 'years2', 'all'];
     const promises = [];
     for (const asset in data) {
       const periodsData: PeriodsData = {};
@@ -31,7 +33,7 @@ export class StabilityService {
         let filteredData = data[asset];
         if (startDate) {
           filteredData = filteredData.filter(
-            (val) => val.time > format(startDate, 'yyyy-MM-dd'),
+            (val) => val.time.split('T')[0] > format(startDate, 'yyyy-MM-dd'),
           );
         }
 
@@ -49,7 +51,7 @@ export class StabilityService {
         const density = Array.from(
           density1d(
             allCosts
-              .filter((val) => val >= 0.995 && val < 1.005)
+              // .filter((val) => val >= 0.995 && val < 1.005)
               .map((cost) => cost * 1000),
             { bandwidth: 1, extent: [995, 1005] },
           ),
@@ -89,11 +91,103 @@ export class StabilityService {
       case 'years2':
         startDate = subYears(new Date(), 2);
         break;
-      case 'years3':
-        startDate = subYears(new Date(), 3);
-        break;
     }
 
     return startDate;
+  }
+
+  async calculate(
+    asset: string,
+    condition: string,
+    percentageStr: string,
+    period: string,
+  ) {
+    const percentage = parseFloat(percentageStr);
+    let startDate: Date = null;
+    switch (period) {
+      case '1 year':
+        startDate = subYears(new Date(), 1);
+        break;
+      case '2 years':
+        startDate = subYears(new Date(), 2);
+        break;
+    }
+    let timestampsData: CoinmetricsDataDocument[] = [];
+    (await this.coinmetricsDataCollection.get()).forEach((val) =>
+      timestampsData.push(val.data()),
+    );
+    if (startDate) {
+      timestampsData = timestampsData.filter(
+        (val) => val.timestamp > startDate.getTime(),
+      );
+    }
+
+    const instances = [];
+    let overallDays = 0;
+    let maxContinuousDays = 0;
+    let currentContinuousDays = 0;
+    let intervalFinished = true;
+
+    for (const timestampData of timestampsData) {
+      const cost = parseFloat(timestampData.assets[asset]?.PriceUSD);
+      if (!cost) {
+        continue;
+      }
+
+      if (this.isOutOfRangeStability(cost, percentage, condition)) {
+        overallDays++;
+        currentContinuousDays++;
+        if (currentContinuousDays > maxContinuousDays) {
+          maxContinuousDays = currentContinuousDays;
+        }
+        if (intervalFinished) {
+          intervalFinished = false;
+        }
+      } else if (!intervalFinished) {
+        instances.push(currentContinuousDays);
+        intervalFinished = true;
+        currentContinuousDays = 0;
+      }
+    }
+
+    instances.sort((a, b) => a - b);
+    const medianIndex = (instances.length - 1) / 2;
+    let medianContinuousTime = 0;
+    if (instances.length) {
+      if (medianIndex % 1) {
+        medianContinuousTime =
+          (instances[Math.floor(medianIndex)] +
+            instances[Math.ceil(medianIndex)]) /
+          2;
+        medianContinuousTime = Math.round(medianContinuousTime * 100) / 100;
+      } else {
+        medianContinuousTime = instances[medianIndex];
+      }
+    }
+
+    const data = {
+      instances: instances.length,
+      overallTime: overallDays,
+      maxContinuousTime: maxContinuousDays,
+      medianContinuousTime,
+    };
+
+    return {
+      data,
+    };
+  }
+
+  isOutOfRangeStability(data: number, percentage: number, condition: string) {
+    if (!data) {
+      return false;
+    }
+    switch (condition) {
+      case 'below':
+        return data < 1 - percentage / 100;
+      case 'above':
+        return data >= 1 + percentage / 100;
+      default:
+        return data < 1 - percentage / 100 || data >= 1 + percentage / 100;
+    }
   }
 }
