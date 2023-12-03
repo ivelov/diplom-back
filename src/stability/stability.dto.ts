@@ -4,6 +4,7 @@ export class StabilityDocument {
   static collectionName = 'Stability';
 
   id: string;
+  title: string;
   periods: PeriodsData;
 }
 

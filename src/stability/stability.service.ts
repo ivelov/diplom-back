@@ -5,6 +5,7 @@ import { PeriodsData, StabilityDocument } from './stability.dto';
 import { CollectionReference } from '@google-cloud/firestore';
 import { format, subYears } from 'date-fns';
 import { std } from 'mathjs';
+import { AssetsDocument } from 'src/assets/assets.dto';
 
 @Injectable()
 export class StabilityService {
@@ -23,7 +24,7 @@ export class StabilityService {
     return assetsData;
   }
 
-  async generate(data: AssetsData) {
+  async generate(data: AssetsData, assets: AssetsDocument[]) {
     const periods = ['years1', 'years2', 'all'];
     const promises = [];
     for (const asset in data) {
@@ -74,6 +75,7 @@ export class StabilityService {
       promises.push(
         this.stabilityCollection.doc(asset).set({
           id: asset,
+          title: assets.find((val) => val.id === asset)?.title,
           periods: periodsData,
         }),
       );
@@ -129,7 +131,7 @@ export class StabilityService {
     let intervalFinished = true;
 
     for (const timestampData of timestampsData) {
-      const cost = parseFloat(timestampData.assets[asset]?.PriceUSD);
+      const cost = timestampData.assets[asset]?.PriceUSD;
       if (!cost) {
         continue;
       }

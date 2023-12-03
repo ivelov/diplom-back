@@ -50,7 +50,7 @@ export class AppService {
     }
 
     await Promise.all([
-      this.stabilityService.generate(assetsData),
+      this.stabilityService.generate(assetsData, assets),
       this.saveData(assetsData),
     ]);
 
@@ -76,7 +76,14 @@ export class AppService {
             VelCur1yr: null,
           };
         } else {
-          result.assets[assetId] = data[assetId][i];
+          result.assets[assetId] = {
+            CapAct1yrUSD: parseFloat(data[assetId][i].CapAct1yrUSD || '0'),
+            PriceUSD: parseFloat(data[assetId][i].PriceUSD || '0'),
+            SplyAct1yr: parseFloat(data[assetId][i].SplyAct1yr || '0'),
+            TxTfrCnt: parseFloat(data[assetId][i].TxTfrCnt || '0'),
+            TxTfrValAdjUSD: parseFloat(data[assetId][i].TxTfrValAdjUSD || '0'),
+            VelCur1yr: parseFloat(data[assetId][i].VelCur1yr || '0'),
+          };
         }
       }
       promises.push(
@@ -86,5 +93,13 @@ export class AppService {
       );
     }
     await Promise.all(promises);
+  }
+
+  async list() {
+    const data: CoinmetricsDataDocument[] = [];
+    (await this.coinmetricsDataCollection.get()).forEach((doc) =>
+      data.push(doc.data()),
+    );
+    return data;
   }
 }

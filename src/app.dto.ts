@@ -17,7 +17,16 @@ export interface TimestampData {
 }
 
 export interface AssetsData {
-  [asset: string]: Omit<CoinmetricsDataDto, 'asset'>[];
+  [asset: string]: CoinmetricsDataDto[];
+}
+
+export interface CoinmetricsDataParsed {
+  CapAct1yrUSD: number;
+  PriceUSD: number;
+  SplyAct1yr: number;
+  TxTfrCnt: number;
+  TxTfrValAdjUSD: number;
+  VelCur1yr: number;
 }
 
 export class CoinmetricsDataDocument {
@@ -25,6 +34,6 @@ export class CoinmetricsDataDocument {
 
   timestamp: number;
   assets: {
-    [asset: string]: Omit<CoinmetricsDataDto, 'asset' | 'time'>;
+    [asset: string]: CoinmetricsDataParsed;
   };
 }

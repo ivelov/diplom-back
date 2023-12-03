@@ -1,4 +1,4 @@
-import { Controller, Post } from '@nestjs/common';
+import { Controller, Post, Get } from '@nestjs/common';
 import { AppService } from './app.service';
 
 @Controller()
@@ -8,5 +8,10 @@ export class AppController {
   @Post('generate')
   generate() {
     return this.appService.generate();
+  }
+
+  @Get('timestamp-data')
+  list() {
+    return this.appService.list();
   }
 }
